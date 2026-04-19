@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Mail, Lock, User, AppWindow, CheckCircle2, ScanFace, ChevronRight } from 'lucide-react';
+import api from '../api';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -8,7 +9,61 @@ export default function Signup() {
   const [role, setRole] = useState(null);
   const [verificationStatus, setVerificationStatus] = useState('pending'); // pending, digilocker, face, complete
 
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [password, setPassword] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
   const handleNextStep = () => setStep((prev) => prev + 1);
+
+  const handleSendOtp = async (e) => {
+    e.preventDefault();
+    if (!firstName || !lastName || !password) {
+      setErrorMsg("Please fill in your name and password details first.");
+      return;
+    }
+    if (password.length < 6) {
+      setErrorMsg("Password must be at least 6 characters.");
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setErrorMsg('');
+      await api.post('/auth/send-otp', { email });
+      setOtpSent(true);
+    } catch (err) {
+      setErrorMsg(err.response?.data?.error || err.message || 'Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyAndSignup = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setErrorMsg('');
+      
+      // 1. Verify OTP natively
+      await api.post('/auth/verify-otp', { email, otp });
+      
+      // 2. Signup officially
+      const name = `${firstName} ${lastName}`.trim();
+      await api.post('/auth/signup', { email, password, name });
+      
+      // Complete! Advanced into Identity flow
+      handleNextStep();
+    } catch (err) {
+      setErrorMsg(err.response?.data?.error || err.message || 'Signup failed. Please verify your OTP carefully.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="container" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 0' }}>
@@ -25,7 +80,7 @@ export default function Signup() {
 
         {/* Progress System */}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', padding: '0 1rem' }}>
-          {[1, 2, 3, 4].map((s) => (
+          {[1, 2, 3].map((s) => (
             <div key={s} style={{ 
               width: '24px', height: '24px', borderRadius: '50%', 
               background: step >= s ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
@@ -37,61 +92,66 @@ export default function Signup() {
           ))}
         </div>
 
-        {/* --- STEP 1: EMAIL & OTP --- */}
+        {/* --- STEP 1: All Details + OTP --- */}
         {step === 1 && (
-          <div className="stack animate-enter">
-            <div className="input-group">
-              <label>Work Email Address</label>
-              <div style={{ position: 'relative' }}>
-                <Mail size={18} style={{ position: 'absolute', top: '15px', left: '15px', color: 'var(--text-secondary)' }} />
-                <input type="email" className="input-field" placeholder="you@company.com" style={{ paddingLeft: '45px' }} />
-              </div>
-            </div>
-            
-            <div className="input-group">
-              <label>Enter 6-Digit OTP</label>
-              <div style={{ position: 'relative' }}>
-                <Lock size={18} style={{ position: 'absolute', top: '15px', left: '15px', color: 'var(--text-secondary)' }} />
-                <input type="text" className="input-field" placeholder="• • • • • •" style={{ paddingLeft: '45px', letterSpacing: '4px' }} />
-              </div>
-            </div>
-
-            <button className="btn btn-primary btn-block" onClick={handleNextStep}>
-              Verify & Continue <ChevronRight size={18} />
-            </button>
-            <p style={{ textAlign: 'center', fontSize: '0.85rem', marginTop: '1rem' }}>
-              Already have an account? <span onClick={() => navigate('/login')} style={{ color: 'var(--primary)', cursor: 'pointer' }}>Sign in</span>
-            </p>
-          </div>
-        )}
-
-        {/* --- STEP 2: BASIC DETAILS --- */}
-        {step === 2 && (
-          <div className="stack animate-enter">
+          <form className="stack animate-enter" onSubmit={otpSent ? handleVerifyAndSignup : handleSendOtp}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="input-group">
                 <label>First Name</label>
-                <input type="text" className="input-field" placeholder="John" />
+                <input required type="text" className="input-field" placeholder="John" value={firstName} onChange={e => setFirstName(e.target.value)} disabled={otpSent || loading} />
               </div>
               <div className="input-group">
                 <label>Surname</label>
-                <input type="text" className="input-field" placeholder="Doe" />
+                <input required type="text" className="input-field" placeholder="Doe" value={lastName} onChange={e => setLastName(e.target.value)} disabled={otpSent || loading} />
               </div>
             </div>
             
             <div className="input-group">
               <label>Password</label>
-              <input type="password" className="input-field" placeholder="••••••••" />
+              <div style={{ position: 'relative' }}>
+                <Lock size={18} style={{ position: 'absolute', top: '15px', left: '15px', color: 'var(--text-secondary)' }} />
+                <input required type="password" minLength={6} className="input-field" placeholder="••••••••" style={{ paddingLeft: '45px' }} value={password} onChange={e => setPassword(e.target.value)} disabled={otpSent || loading} />
+              </div>
             </div>
 
-            <button className="btn btn-primary btn-block" onClick={handleNextStep}>
-              Save Details <ChevronRight size={18} />
-            </button>
-          </div>
+            <div className="input-group">
+              <label>Work Email Address</label>
+              <div style={{ position: 'relative' }}>
+                <Mail size={18} style={{ position: 'absolute', top: '15px', left: '15px', color: 'var(--text-secondary)' }} />
+                <input required type="email" className="input-field" placeholder="you@company.com" style={{ paddingLeft: '45px' }} value={email} onChange={e => setEmail(e.target.value)} disabled={otpSent || loading} />
+              </div>
+            </div>
+
+            {otpSent && (
+              <div className="input-group animate-enter">
+                <label>Enter 6-Digit Verification Code</label>
+                <div style={{ position: 'relative' }}>
+                  <Shield size={18} style={{ position: 'absolute', top: '15px', left: '15px', color: 'var(--primary)' }} />
+                  <input required type="text" maxLength={6} className="input-field" placeholder="• • • • • •" style={{ paddingLeft: '45px', letterSpacing: '4px' }} value={otp} onChange={e => setOtp(e.target.value)} disabled={loading} />
+                </div>
+              </div>
+            )}
+
+            {errorMsg && step === 1 && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', margin: 0 }}>{errorMsg}</p>}
+
+            {!otpSent ? (
+              <button type="submit" className="btn btn-primary btn-block" disabled={loading || !email}>
+                {loading ? 'Requesting...' : 'Send OTP'}
+              </button>
+            ) : (
+              <button type="submit" className="btn btn-primary btn-block" disabled={loading || otp.length < 6}>
+                {loading ? 'Securing Account...' : 'Verify & Create Account'} <ChevronRight size={18} />
+              </button>
+            )}
+
+            <p style={{ textAlign: 'center', fontSize: '0.85rem', marginTop: '1rem' }}>
+              Already have an account? <span onClick={() => navigate('/login')} style={{ color: 'var(--primary)', cursor: 'pointer' }}>Sign in</span>
+            </p>
+          </form>
         )}
 
-        {/* --- STEP 3: KYC IDENTITY VERIFICATION --- */}
-        {step === 3 && (
+        {/* --- STEP 2: KYC IDENTITY VERIFICATION --- */}
+        {step === 2 && (
           <div className="stack animate-enter">
             <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Identity Verification</h3>
             <p style={{ fontSize: '0.875rem', marginBottom: '1.5rem' }}>Please verify your identity for compliance requirements.</p>
@@ -134,8 +194,8 @@ export default function Signup() {
           </div>
         )}
 
-        {/* --- STEP 4: ROLE SELECTION --- */}
-        {step === 4 && (
+        {/* --- STEP 3: ROLE SELECTION --- */}
+        {step === 3 && (
           <div className="stack animate-enter">
             <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem', textAlign: 'center' }}>How will you use Devclash?</h3>
             
@@ -169,7 +229,7 @@ export default function Signup() {
               className="btn btn-primary btn-block" 
               style={{ marginTop: '1rem' }}
               onClick={() => {
-                if (role === 'user') navigate('/dashboard');
+                if (role === 'user') navigate('/login'); // Force authentic login flow
                 if (role === 'company') navigate('/company-flow');
               }}
               disabled={!role}

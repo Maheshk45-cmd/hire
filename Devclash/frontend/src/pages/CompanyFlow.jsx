@@ -8,14 +8,22 @@ export default function CompanyFlow() {
   const [company, setCompany] = useState(null); // Simulated MCA fetch result
   const [flowStatus, setFlowStatus] = useState('search'); // search, found-no-admin, found-has-admin
 
-  const handleSearch = () => {
-    // Mock MCA fetch
-    if (search.toLowerCase().includes('acme')) {
-      setCompany({ name: 'Acme Corp', cin: 'L12345MH2023PTC123456', hasAdmin: true });
-      setFlowStatus('found-has-admin');
-    } else {
-      setCompany({ name: search || 'New Tech Inc', cin: 'U72900KA2021PTC098765', hasAdmin: false });
-      setFlowStatus('found-no-admin');
+  const handleSearch = async () => {
+    try {
+      const res = await fetch(`/api/company/mca-verify?query=${encodeURIComponent(search)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Company not found');
+        return;
+      }
+      setCompany({ name: data.name, cin: data.cin, hasAdmin: data.hasAdmin });
+      if (data.hasAdmin) {
+        setFlowStatus('found-has-admin');
+      } else {
+        setFlowStatus('found-no-admin');
+      }
+    } catch (err) {
+      alert('Error fetching MCA database');
     }
   };
 
