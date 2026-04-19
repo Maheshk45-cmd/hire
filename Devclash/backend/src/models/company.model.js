@@ -6,11 +6,11 @@ const companySchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    domain: {
-      type: String, // Official Domain
+    domains: [{
+      type: String, // Official Domains
       lowercase: true,
       trim: true,
-    },
+    }],
     cin: {
       type: String,
       required: true,
@@ -20,6 +20,7 @@ const companySchema = new mongoose.Schema(
       {
         name: { type: String, required: true },
         email: { type: String, required: true },
+        din: { type: String }
       }
     ],
     isVerified: {

@@ -5,6 +5,9 @@ import {
   cancelEvent,
   registerForEvent,
   reportEvent,
+  getPendingApprovals,
+  approveEvent,
+  rejectEvent
 } from "../controllers/event.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
 import { roleMiddleware } from "../middlewares/role.middleware.js";
@@ -15,8 +18,13 @@ const router = express.Router();
 router.use(verifyToken);
 
 // --- Host/Company Actions ---
-// Only Admin/Owners can create or cancel their events
-router.post("/create", roleMiddleware(["ADMIN", "OWNER"]), createEvent);
+// All vetted associates can create, but logic isolates Employees to pending approval
+router.post("/create", roleMiddleware(["ADMIN", "OWNER", "EMPLOYEE"]), createEvent);
+
+// Admin / Owner Overrides for Employee submissions
+router.get("/pending-approvals", roleMiddleware(["ADMIN", "OWNER"]), getPendingApprovals);
+router.post("/:id/approve", roleMiddleware(["ADMIN", "OWNER"]), approveEvent);
+router.post("/:id/reject", roleMiddleware(["ADMIN", "OWNER"]), rejectEvent);
 
 // Only Admin/Owners can accept an incoming collaboration
 router.post("/:id/accept-collab", roleMiddleware(["ADMIN", "OWNER"]), acceptCollab);

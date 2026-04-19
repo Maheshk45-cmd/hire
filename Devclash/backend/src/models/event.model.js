@@ -21,9 +21,14 @@ const eventSchema = new mongoose.Schema(
     },
     eventStartDate: { type: Date, required: true },
     eventEndDate: { type: Date, required: true },
+    postedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     eventStatus: {
       type: String,
-      enum: ["PENDING_COLLAB", "LIVE", "CANCELLED", "FLAGGED"],
+      enum: ["PENDING_APPROVAL", "PENDING_COLLAB", "LIVE", "CANCELLED", "FLAGGED"],
       default: "LIVE",
     },
     paymentStatus: {

@@ -93,8 +93,8 @@ export const getEventDashboardData = async (companyId) => {
   const events = await Event.find({ $or: [{ primaryHostId: companyId }, { coHostId: companyId }] }).lean();
 
   return {
-    pending: events.filter(e => e.collaborationStatus === "PENDING_PARTNER"),
-    approved: events.filter(e => e.collaborationStatus === "APPROVED" && e.escrowStatus === "ESCROW_HELD"),
-    completed: events.filter(e => e.escrowStatus === "RELEASED"),
+    pending: events.filter(e => e.eventStatus === "PENDING_COLLAB" || e.eventStatus === "PENDING_APPROVAL"),
+    approved: events.filter(e => e.eventStatus === "LIVE" && e.paymentStatus === "HELD_IN_ESCROW"),
+    completed: events.filter(e => e.eventStatus === "LIVE" && (e.paymentStatus === "PAYOUT_RELEASED" || e.paymentStatus === "REFUNDED") || e.eventStatus === "CANCELLED"),
   };
 };

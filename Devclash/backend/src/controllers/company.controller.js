@@ -81,14 +81,19 @@ export const applyCompanyAdmin = async (req, res) => {
 // ... other existing legacy employee routes ...
 export const joinEmployee = async (req, res) => {
   try {
-    const { googleEmail } = req.body;
+    const { googleEmail, cin } = req.body;
     
     if (!googleEmail || !googleEmail.includes("@")) {
       return res.status(400).json({ error: "Invalid Google Email" });
     }
 
-    const hostedDomain = googleEmail.split("@")[1];
-    const company = await Company.findOne({ domain: hostedDomain.toLowerCase() });
+    let company;
+    if (cin) {
+       company = await Company.findOne({ cin });
+    } else {
+       const hostedDomain = googleEmail.split("@")[1];
+       company = await Company.findOne({ domains: { $in: [hostedDomain.toLowerCase()] } });
+    }
     
     if (!company) {
       return res.status(404).json({ error: "No registered company matches this domain." });
@@ -168,9 +173,27 @@ export const searchMcaDatabase = async (req, res) => {
       cin: mcaCompany.cin,
       mcaStatus: mcaCompany.status,
       hasAdmin,
-      isRegisteredInternally: !!internalCompany
+      isRegisteredInternally: !!internalCompany,
+      domains: internalCompany ? internalCompany.domains : []
     });
 
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const verifyDin = async (req, res) => {
+  try {
+    const { cin, din } = req.query;
+    if (!cin || !din) return res.status(400).json({ error: "CIN and DIN are required" });
+    
+    const company = await Company.findOne({ cin });
+    if (!company) return res.status(404).json({ error: "Company not found in system." });
+
+    const director = company.directors.find(d => d.din === din);
+    if (!director) return res.status(404).json({ error: "Incorrect DIN. Does not match our MCA records." });
+
+    res.status(200).json({ name: director.name });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

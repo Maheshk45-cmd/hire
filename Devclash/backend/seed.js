@@ -15,14 +15,20 @@ async function seed() {
         await mongoose.connect(process.env.MONGO_URI || "mongodb://127.0.0.1:27017/devclash");
         console.log("Connected to MongoDB for Seeding...");
 
+        // Wipe stale models correctly so unique CIN IDs do not clash!
+        await Company.deleteMany({});
+        await User.deleteMany({});
+        await Event.deleteMany({});
+        await Job.deleteMany({});
+
         // Generate Companies
         const companies = [];
         for (let i = 1; i <= SEED_COUNT; i++) {
             const c = await Company.create({
                 name: `TechNova Corp ${i}`,
-                domain: `technova${i}.com`,
+                domains: [`technova${i}.com`, `technova${i}.io`, `technova${i}.in`],
                 cin: `U72900MH2023PTC${100000 + i}`,
-                directors: [{ name: `Director ${i}`, email: `director${i}@technova${i}.com` }],
+                directors: [{ name: `Director ${i}`, email: `director${i}@technova${i}.com`, din: `0000100${i}` }],
                 isVerified: true
             });
             companies.push(c);
@@ -54,6 +60,7 @@ async function seed() {
                 description: `A highly anticipated networking event hosted by TechNova Corp ${i}. Join us to explore edge architecture!`,
                 ticketPrice: i * 15,
                 primaryHostId: companies[i - 1]._id,
+                postedBy: users[i - 1]._id,
                 eventStartDate: new Date(Date.now() + 86400000 * i),
                 eventEndDate: new Date(Date.now() + 86400000 * i + 3600000),
                 eventStatus: i % 3 === 0 ? "PENDING_COLLAB" : "LIVE",
