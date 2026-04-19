@@ -120,17 +120,38 @@ export const searchMcaDatabase = async (req, res) => {
 
     const lowerQuery = query.toLowerCase();
     
-    // Find in mock database
-    const mcaCompany = mockMcaDatabase.find(
+    // 1. Check Hardcoded Mock Database
+    let mcaCompany = mockMcaDatabase.find(
       c => c.name.toLowerCase().includes(lowerQuery) || c.cin.toLowerCase().includes(lowerQuery)
     );
 
+    // 2. Fallback to querying dynamic seeded Database dynamically directly matching MCA mock behavior
+    let internalCompany = null;
     if (!mcaCompany) {
-      return res.status(404).json({ error: "No matching company found in MCA database." });
+      internalCompany = await Company.findOne({
+        $or: [
+          { cin: new RegExp(query, 'i') },
+          { name: new RegExp(query, 'i') }
+        ]
+      });
+
+      if (internalCompany) {
+        mcaCompany = { 
+          name: internalCompany.name, 
+          cin: internalCompany.cin, 
+          status: "Active" 
+        };
+      }
+    }
+
+    if (!mcaCompany) {
+      return res.status(404).json({ error: "No matching company found in MCA database or our Records." });
     }
 
     // Now check if it exists in our internal DB to see if it has an admin
-    const internalCompany = await Company.findOne({ cin: mcaCompany.cin });
+    if (!internalCompany) {
+       internalCompany = await Company.findOne({ cin: mcaCompany.cin });
+    }
     let hasAdmin = false;
     
     if (internalCompany) {
