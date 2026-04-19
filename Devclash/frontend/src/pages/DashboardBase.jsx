@@ -108,41 +108,56 @@ export default function DashboardBase() {
           )}
         </header>
 
-        {/* Stats Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
-          <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Total Events</h4>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{totalEvents}</div>
+        {role === 'USER' ? (
+          <div className="glass-panel animate-enter" style={{ padding: '4rem 2rem', textAlign: 'center', marginTop: '2rem', border: '1px solid rgba(59, 130, 246, 0.3)', background: 'rgba(59, 130, 246, 0.05)' }}>
+            <Building2 size={56} color="var(--primary)" style={{ margin: '0 auto 1.5rem' }} />
+            <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Unlock Company Features</h2>
+            <p style={{ color: 'var(--text-secondary)', maxWidth: '500px', margin: '0 auto 2.5rem', lineHeight: '1.6', fontSize: '1.1rem' }}>
+              You are currently utilizing a Personal Profile. To unlock Premium Event Creation, Job Postings, and unified corporate metrics, you must mathematically link to an MCA registered entity.
+            </p>
+            <button className="btn btn-primary" onClick={() => navigate('/add-company')} style={{ padding: '1rem 2.5rem', fontSize: '1.1rem', borderRadius: '12px' }}>
+               Link Organization Profile
+            </button>
           </div>
-          {(role === 'ADMIN' || role === 'OWNER') && (
-            <div className="glass-panel" style={{ padding: '1.5rem' }}>
-              <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Pending Jobs</h4>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{pendingJobs}</div>
-            </div>
-          )}
-          <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Live Jobs</h4>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{liveJobs}</div>
-          </div>
-        </div>
-        
-        {/* Recent Activity */}
-        <div className="glass-panel" style={{ padding: '2rem' }}>
-          <h3 style={{ marginBottom: '1.5rem' }}>Recent Activity</h3>
-          <div className="stack" style={{ gap: '1.5rem' }}>
-            {activities.length > 0 ? activities.map((act, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%' }}></div>
-                <p style={{ margin: 0, fontSize: '0.9rem' }}>{act.message}</p>
-                <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  {new Date(act.createdAt).toLocaleDateString()}
-                </span>
+        ) : (
+          <>
+            {/* Stats Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
+              <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Total Events</h4>
+                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{totalEvents}</div>
               </div>
-            )) : (
-              <p style={{ color: 'var(--text-secondary)' }}>No recent activity to show.</p>
-            )}
-          </div>
-        </div>
+              {(role === 'ADMIN' || role === 'OWNER') && (
+                <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                  <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Pending Jobs</h4>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{pendingJobs}</div>
+                </div>
+              )}
+              <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Live Jobs</h4>
+                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{liveJobs}</div>
+              </div>
+            </div>
+            
+            {/* Recent Activity */}
+            <div className="glass-panel" style={{ padding: '2rem' }}>
+              <h3 style={{ marginBottom: '1.5rem' }}>Recent Activity</h3>
+              <div className="stack" style={{ gap: '1.5rem' }}>
+                {activities.length > 0 ? activities.map((act, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%' }}></div>
+                    <p style={{ margin: 0, fontSize: '0.9rem' }}>{act.message}</p>
+                    <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      {new Date(act.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                )) : (
+                  <p style={{ color: 'var(--text-secondary)' }}>No recent activity to show.</p>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
       </main>
 

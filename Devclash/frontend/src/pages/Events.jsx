@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Flag, Plus, ArrowLeft } from 'lucide-react';
+import { Calendar, Flag, Plus, ArrowLeft, Check, X } from 'lucide-react';
 import api from '../api';
 
 export default function Events() {
   const navigate = useNavigate();
   const [eventsData, setEventsData] = useState({ pending: [], approved: [], completed: [] });
+  const [pendingApprovals, setPendingApprovals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   
@@ -20,7 +21,9 @@ export default function Events() {
 
   const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
   const role = storedUser?.role?.toUpperCase() || 'USER';
-  const canCreate = role === 'ADMIN' || role === 'OWNER';
+  const isAdminOrOwner = role === 'ADMIN' || role === 'OWNER';
+  const isEmployee = role === 'EMPLOYEE';
+  const canCreate = isAdminOrOwner || isEmployee;
 
   const fetchEvents = async () => {
     try {
@@ -28,6 +31,11 @@ export default function Events() {
       setErrorMsg('');
       const res = await api.get('/events/my-company');
       setEventsData(res.data);
+
+      if (isAdminOrOwner) {
+        const approvalRes = await api.get('/events/pending-approvals');
+        setPendingApprovals(approvalRes.data.data || []);
+      }
     } catch (err) {
       setErrorMsg(err.response?.data?.error || 'Failed to sync events');
     } finally {
@@ -49,6 +57,17 @@ export default function Events() {
       await fetchEvents(); // Refresh data
     } catch (err) {
       setErrorMsg(err.response?.data?.error || 'Failed to create event');
+      setLoading(false);
+    }
+  };
+
+  const handleApproval = async (id, action) => {
+    try {
+      setLoading(true);
+      await api.post(`/events/${id}/${action}`);
+      await fetchEvents();
+    } catch (err) {
+      setErrorMsg(err.response?.data?.error || `Failed to ${action} event`);
       setLoading(false);
     }
   };
@@ -78,7 +97,7 @@ export default function Events() {
         </div>
         {canCreate && (
           <button className="btn btn-primary" onClick={() => setShowCreate(!showCreate)}>
-            <Plus size={18} /> {showCreate ? 'Cancel' : 'New Event'}
+            <Plus size={18} /> {showCreate ? 'Cancel' : (isEmployee ? 'Submit New Event' : 'New Event')}
           </button>
         )}
       </header>
@@ -87,7 +106,7 @@ export default function Events() {
 
       {showCreate && canCreate && (
         <div className="glass-panel animate-enter" style={{ padding: '2rem', marginBottom: '2rem' }}>
-          <h3>Create Event Blueprint</h3>
+          <h3>{isEmployee ? "Submit Event for Administrator Review" : "Create Event Blueprint"}</h3>
           <form onSubmit={handleCreateEvent} className="stack" style={{ marginTop: '1rem' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="input-group">
@@ -113,7 +132,9 @@ export default function Events() {
                 <input required type="date" className="input-field" value={newEvent.eventEndDate} onChange={e => setNewEvent({...newEvent, eventEndDate: e.target.value})} />
               </div>
             </div>
-            <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: 'fit-content' }}>Publish Event</button>
+            <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: 'fit-content' }}>
+              {isEmployee ? "Submit for Approval" : "Publish Event"}
+            </button>
           </form>
         </div>
       )}
@@ -123,6 +144,30 @@ export default function Events() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
           
+          {/* Admin Verification Requests (Only visible to ADMIN/OWNER) */}
+          {isAdminOrOwner && (
+            <div className="glass-panel" style={{ padding: '1.5rem', border: '1px solid var(--warning)' }}>
+              <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--panel-border)', paddingBottom: '0.5rem', color: 'var(--warning)' }}>Employee Pending Approvals</h3>
+              <div className="stack">
+                {pendingApprovals.length === 0 && <p style={{ color: 'var(--text-secondary)' }}>No events require your verification.</p>}
+                {pendingApprovals.map((evt) => (
+                  <div key={evt._id} style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', borderLeft: '4px solid var(--warning)' }}>
+                    <h4 style={{ margin: '0 0 0.5rem 0' }}>{evt.title}</h4>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 0.5rem 0' }}>Tickets: ${evt.ticketPrice} - Drafted by {evt.postedBy?.name}</p>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.25rem 0.75rem', fontSize: '0.8rem', color: 'var(--accent)', borderColor: 'var(--accent)' }} onClick={() => handleApproval(evt._id, 'approve')}>
+                        <Check size={14} /> Approve
+                      </button>
+                      <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.25rem 0.75rem', fontSize: '0.8rem', color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleApproval(evt._id, 'reject')}>
+                        <X size={14} /> Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Approved Events */}
           <div className="glass-panel" style={{ padding: '1.5rem' }}>
             <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--panel-border)', paddingBottom: '0.5rem' }}>Live Escrow Events</h3>
@@ -140,15 +185,21 @@ export default function Events() {
             </div>
           </div>
 
-          {/* Pending Events */}
+          {/* Pending Collab Events */}
           <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--panel-border)', paddingBottom: '0.5rem' }}>Pending Approval</h3>
+            <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--panel-border)', paddingBottom: '0.5rem' }}>Pending Organization Signatures</h3>
             <div className="stack">
-              {eventsData.pending?.length === 0 && <p style={{ color: 'var(--text-secondary)' }}>No pending events.</p>}
-              {eventsData.pending?.map((evt) => (
+              {eventsData.pending?.filter(e => e.eventStatus === 'PENDING_COLLAB').length === 0 && <p style={{ color: 'var(--text-secondary)' }}>No pending events.</p>}
+              {eventsData.pending?.filter(e => e.eventStatus === 'PENDING_COLLAB').map((evt) => (
                 <div key={evt._id} style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', borderLeft: '4px solid var(--warning)' }}>
                   <h4 style={{ margin: '0 0 0.5rem 0' }}>{evt.title}</h4>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Awaiting Signature</p>
+                </div>
+              ))}
+              {isEmployee && eventsData.pending?.filter(e => e.eventStatus === 'PENDING_APPROVAL').map((evt) => (
+                <div key={evt._id} style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', borderLeft: '4px solid var(--warning)' }}>
+                  <h4 style={{ margin: '0 0 0.5rem 0' }}>{evt.title}</h4>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Under Review by Admin</p>
                 </div>
               ))}
             </div>

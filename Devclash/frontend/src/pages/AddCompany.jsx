@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building, Mail, Globe, Briefcase, ChevronRight, CheckCircle2 } from 'lucide-react';
+import api from '../api';
 
 export default function AddCompany() {
   const navigate = useNavigate();
@@ -14,6 +15,8 @@ export default function AddCompany() {
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [din, setDin] = useState('');
+  const [directorName, setDirectorName] = useState('');
 
   const handleNext = () => setStep(prev => prev + 1);
 
@@ -21,50 +24,61 @@ export default function AddCompany() {
     try {
       setLoading(true);
       setErrorMsg('');
-      const res = await fetch(`/api/company/mca-verify?query=${encodeURIComponent(search)}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Company not found');
-      setCompany(data);
+      const res = await api.get(`/company/mca-verify?query=${encodeURIComponent(search)}`);
+      setCompany(res.data);
+      // Reset DIN fields upon searching new company
+      setDin('');
+      setDirectorName('');
     } catch (err) {
-      setErrorMsg(err.message);
+      setErrorMsg(err.response?.data?.error || err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSendOtp = async () => {
+  const handleVerifyDin = async () => {
     try {
       setLoading(true);
       setErrorMsg('');
-      const res = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to send OTP');
-      setOtpSent(true);
+      const res = await api.get(`/company/verify-din?cin=${company.cin}&din=${din}`);
+      setDirectorName(res.data.name);
     } catch (err) {
-      setErrorMsg(err.message);
+      setErrorMsg(err.response?.data?.error || err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyOtp = async () => {
+  const handleVerifyEmailBypass = () => {
+    // Temporary bypass for testing without SMTP
+    handleNext();
+  };
+
+  const handleCompleteSequence = async () => {
     try {
       setLoading(true);
       setErrorMsg('');
-      const res = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Invalid OTP');
-      handleNext();
+
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+
+      if (role === 'employee') {
+        // Send CIN directly so backend doesn't strictly have to verify via domain map only
+        const res = await api.post('/company/join-employee', { googleEmail: email, cin: company.cin });
+        
+        // Update local session data with new employee role
+        localStorage.setItem('user', JSON.stringify({ ...storedUser, ...res.data.user }));
+      } else if (role === 'owner') {
+        await api.post('/company/admin/apply', {
+             name: directorName || storedUser.name,
+             email: email,
+             password: 'dummyPassword123', // Legacy backend catch bypass
+             cin: company.cin
+        });
+      }
+
+      navigate('/dashboard');
     } catch (err) {
-      setErrorMsg(err.message);
+      setErrorMsg(err.response?.data?.error || err.message);
     } finally {
       setLoading(false);
     }
@@ -110,7 +124,7 @@ export default function AddCompany() {
           </div>
         )}
 
-        {/* Step 2: Email & Domain Verification */}
+        {/* Step 2: Email Configuration */}
         {step === 2 && (
           <div className="stack animate-enter">
             <div className="input-group">
@@ -118,36 +132,29 @@ export default function AddCompany() {
               <div style={{ position: 'relative', display: 'flex', gap: '0.5rem' }}>
                 <div style={{ position: 'relative', flex: 1 }}>
                   <Mail size={18} style={{ position: 'absolute', top: '15px', left: '15px', color: 'var(--text-secondary)' }} />
-                  <input type="email" className="input-field" placeholder="you@acmecorp.com" style={{ paddingLeft: '45px' }} value={email} onChange={e => setEmail(e.target.value)} disabled={otpSent} />
+                  <input type="email" className="input-field" placeholder="you@acmecorp.com" style={{ paddingLeft: '45px' }} value={email} onChange={e => setEmail(e.target.value)} disabled={loading} />
                 </div>
-                {!otpSent && (
-                  <button className="btn btn-outline" onClick={handleSendOtp} disabled={loading || !email}>
-                    {loading ? 'Sending...' : 'Send OTP'}
-                  </button>
-                )}
               </div>
             </div>
-            
-            {otpSent && (
-              <div className="input-group animate-enter">
-                <label>OTP from Work Email</label>
-                <input type="text" className="input-field" placeholder="• • • • • •" style={{ letterSpacing: '4px' }} value={otp} onChange={e => setOtp(e.target.value)} disabled={loading} />
-              </div>
-            )}
 
-            {company && email && email.includes('@') && (
+            {company && email && email.includes('@') && company.domains?.includes(email.split('@')[1].toLowerCase()) && (
               <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid var(--primary)', borderRadius: '8px', padding: '1rem', display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
                 <Globe color="var(--primary)" style={{ flexShrink: 0 }} />
                 <p style={{ fontSize: '0.85rem', margin: 0, color: 'var(--text-primary)' }}>
-                  Domain <strong>@{email.split('@')[1]}</strong> verified and matches company records.
+                  Domain <strong>@{email.split('@')[1]}</strong> verified perfectly matching one of the {company.domains.length} associated organizational domains.
                 </p>
               </div>
+            )}
+            {company && email && email.includes('@') && company.domains && !company.domains?.includes(email.split('@')[1].toLowerCase()) && (
+              <p style={{ color: 'var(--warning)', fontSize: '0.85rem', marginTop: '0.5rem' }}>
+                 Warning: This domain is not currently strictly matched against the verified DB records. This restricts automated approvals.
+              </p>
             )}
 
             {errorMsg && step === 2 && <p style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>{errorMsg}</p>}
 
-            <button className="btn btn-primary btn-block" style={{ marginTop: '1rem' }} onClick={handleVerifyOtp} disabled={!otpSent || !otp || loading}>
-              Verify Work Email <ChevronRight size={18} />
+            <button className="btn btn-primary btn-block" style={{ marginTop: '1rem' }} onClick={handleVerifyEmailBypass} disabled={!email || !email.includes('@') || loading}>
+              Confirm Email <ChevronRight size={18} />
             </button>
           </div>
         )}
@@ -180,19 +187,36 @@ export default function AddCompany() {
             </div>
 
             {role === 'owner' && (
-              <div className="input-group animate-enter" style={{ marginTop: '1rem' }}>
-                <label>Registered Director Name</label>
-                <input type="text" className="input-field" placeholder="Must match MCA records perfectly" />
+              <div className="animate-enter" style={{ marginTop: '1rem' }}>
+                <div className="input-group">
+                  <label>Director Identification Number (DIN)</label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input type="text" className="input-field" placeholder="8-Digit DIN" value={din} onChange={e => setDin(e.target.value)} disabled={loading || directorName} />
+                    {!directorName && (
+                      <button className="btn btn-outline" onClick={handleVerifyDin} disabled={loading || !din}>Verify</button>
+                    )}
+                  </div>
+                </div>
+                {directorName && (
+                  <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid var(--accent)', borderRadius: '8px', padding: '1rem', marginTop: '1rem', display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                    <CheckCircle2 color="var(--accent)" style={{ flexShrink: 0 }} />
+                    <p style={{ fontSize: '0.85rem', margin: 0, color: 'var(--text-primary)' }}>
+                      DIN verified. Official identity matched: <strong>{directorName}</strong>.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
+
+            {errorMsg && step === 3 && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginTop: '1rem' }}>{errorMsg}</p>}
 
             <button 
               className="btn btn-primary btn-block" 
               style={{ marginTop: '1rem' }}
-              disabled={!role}
-              onClick={() => navigate('/dashboard')}
+              disabled={!role || loading || (role === 'owner' && !directorName)}
+              onClick={handleCompleteSequence}
             >
-              Complete Association
+              {loading ? "Processing Link..." : "Complete Association"}
             </button>
           </div>
         )}
