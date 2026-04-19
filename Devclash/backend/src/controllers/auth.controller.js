@@ -6,7 +6,9 @@ import nodemailer from "nodemailer";
 
 const createTransporter = () => {
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT || 587,
+    secure: process.env.SMTP_PORT == 465, // true for 465, false for other ports
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -69,9 +71,7 @@ export const verifyOtp = async (req, res) => {
     const inputHash = crypto.createHash('sha256').update(otp).digest('hex');
     if (storedOtp.otpHash !== inputHash) return res.status(400).json({ error: "Invalid OTP" });
 
-    storedOtp.isVerified = true;
-    await storedOtp.save();
-    
+    await Otp.deleteMany({ email });
     res.status(200).json({ message: "Email verified successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -142,7 +142,7 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// Final Signup (requires earlier valid OTP conceptually internally verified)
+// Final Signup (requires earlier valid OTP conceptually in frontend)
 export const signup = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -150,16 +150,7 @@ export const signup = async (req, res) => {
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ error: "User already exists" });
 
-    // Validate if OTP was previously successfully verified
-    const verifiedOtp = await Otp.findOne({ email, isVerified: true });
-    if (!verifiedOtp) {
-       return res.status(403).json({ error: "Unverified Email. Secure OTP verification strictly required before registration." });
-    }
-
     const newUser = await User.create({ email, password });
-    
-    // Clear out the OTP buffer completely after full secure registration
-    await Otp.deleteMany({ email });
     
     res.status(201).json({
       message: "Account created successfully.",
@@ -232,6 +223,27 @@ export const verifyDigilocker = async (req, res) => {
 // Mock Face Verification
 export const verifyFace = async (req, res) => {
   try {
+    const { image_base64 } = req.body;
+    if (!image_base64) {
+      return res.status(400).json({ error: "No image provided" });
+    }
+
+    // Call Python FastAPI service internally
+    const pythonResponse = await fetch("http://localhost:8000/api/verify-liveness", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ image_base64 })
+    });
+
+    const livenessData = await pythonResponse.json();
+
+    if (!pythonResponse.ok || livenessData.status !== "success") {
+      return res.status(400).json({ error: livenessData.reason || "Liveness verification failed" });
+    }
+
+    // Update user status
     const user = await User.findByIdAndUpdate(
       req.user.id,
       { isFaceVerified: true },
@@ -240,6 +252,7 @@ export const verifyFace = async (req, res) => {
 
     res.status(200).json({ message: "Face verification successful", user });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error("[Liveness verify error]", error);
+    res.status(500).json({ error: "Internal server error during face verification" });
   }
 };

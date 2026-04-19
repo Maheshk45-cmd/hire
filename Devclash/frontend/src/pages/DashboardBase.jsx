@@ -1,48 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Briefcase, Building2, Calendar, LayoutDashboard, LogOut, Settings, User } from 'lucide-react';
-import api from '../api';
 
 export default function DashboardBase() {
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
-  const [activities, setActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [dashRes, feedRes] = await Promise.all([
-          api.get('/dashboard/me'),
-          api.get('/activity/feed').catch(() => ({ data: { activities: [] } }))
-        ]);
-        setData(dashRes.data);
-        setActivities(feedRes.data.activities || []);
-      } catch (error) {
-        console.error("Dashboard fetch error", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
-
-  if (loading) return <div style={{ padding: '2rem' }}>Loading dashboard...</div>;
-  if (!data) return <div style={{ padding: '2rem' }}>Error loading dashboard. Please login again.</div>;
-
-  const role = data.user?.role?.toUpperCase() || 'USER';
-  const displayRole = role === 'USER' ? 'Personal' : `${data.company?.name || 'Company'} (${role})`;
+  const [activeRole, setActiveRole] = useState('user'); // user, admin, owner
   
-  const stats = data.stats || {};
-  const totalEvents = stats.totalEvents || 0;
-  const pendingJobs = stats.pendingJobs || 0;
-  const liveJobs = stats.liveJobs || 0;
-
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       
@@ -53,43 +16,53 @@ export default function DashboardBase() {
           <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Devclash</h2>
         </div>
 
-        {/* Role Display */}
+        {/* Role Switcher */}
         <div style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid var(--panel-border)' }}>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Current Profile</p>
-          <div style={{ color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: 'bold' }}>
-            {displayRole}
-          </div>
+          <select 
+            value={activeRole} 
+            onChange={(e) => setActiveRole(e.target.value)}
+            style={{ width: '100%', background: 'transparent', color: 'var(--text-primary)', border: 'none', outline: 'none', fontSize: '0.9rem', cursor: 'pointer' }}
+          >
+            <option value="user">Personal (John Doe)</option>
+            <option value="owner">Acme Corp (Owner)</option>
+            <option value="admin">TechFlow (Admin)</option>
+          </select>
         </div>
 
         {/* Navigation */}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
-          <div className="nav-item active"><LayoutDashboard size={18} /> Dashboard</div>
-          <div className="nav-item" onClick={() => navigate('/events')} style={{ cursor: 'pointer' }}><Calendar size={18} /> Events</div>
+          <a href="#" className="nav-item active"><LayoutDashboard size={18} /> Dashboard</a>
+          <a href="#" className="nav-item"><Calendar size={18} /> Events</a>
           
-          <div className="nav-item" style={{ cursor: 'pointer' }}><Briefcase size={18} /> Find Jobs</div>
+          {activeRole === 'user' && (
+            <a href="#" className="nav-item"><Briefcase size={18} /> Find Jobs</a>
+          )}
           
-          {(role === 'OWNER' || role === 'ADMIN') && (
-            <div className="nav-item" style={{ cursor: 'pointer' }}><User size={18} /> Manage Employees</div>
+          {(activeRole === 'owner' || activeRole === 'admin') && (
+            <a href="#" className="nav-item"><User size={18} /> Manage Employees</a>
           )}
 
           <div style={{ borderTop: '1px solid var(--panel-border)', margin: '1rem 0' }}></div>
           
-          {role === 'USER' && (
-            <div onClick={() => navigate('/add-company')} className="nav-item" style={{ color: 'var(--primary)', cursor: 'pointer' }}>
+          {activeRole === 'user' && (
+            <div 
+              onClick={() => navigate('/add-company')}
+              className="nav-item" 
+              style={{ color: 'var(--primary)', cursor: 'pointer' }}
+            >
               <Building2 size={18} /> Add Company
             </div>
           )}
           
-          <div className="nav-item" style={{ cursor: 'pointer' }}><Settings size={18} /> Settings</div>
+          <a href="#" className="nav-item"><Settings size={18} /> Settings</a>
         </nav>
 
         {/* User context footer */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--panel-border)', cursor: 'pointer' }} onClick={handleLogout}>
-          <div style={{ width: '36px', height: '36px', background: 'var(--primary)', borderRadius: '50%', textAlign: 'center', lineHeight: '36px', fontWeight: 'bold' }}>
-            {data.user.email ? data.user.email.charAt(0).toUpperCase() : 'U'}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h4 style={{ fontSize: '0.9rem', margin: 0, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{data.user.email}</h4>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--panel-border)', cursor: 'pointer' }} onClick={() => navigate('/login')}>
+          <div style={{ width: '36px', height: '36px', background: 'var(--primary)', borderRadius: '50%', textAlign: 'center', lineHeight: '36px', fontWeight: 'bold' }}>J</div>
+          <div style={{ flex: 1 }}>
+            <h4 style={{ fontSize: '0.9rem', margin: 0 }}>John Doe</h4>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Logout</p>
           </div>
           <LogOut size={18} color="var(--text-secondary)" />
@@ -101,28 +74,24 @@ export default function DashboardBase() {
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
           <div>
             <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Overview</h1>
-            <p style={{ color: 'var(--text-secondary)' }}>Welcome back to your {role === 'USER' ? 'personal' : 'company'} dashboard.</p>
+            <p style={{ color: 'var(--text-secondary)' }}>Welcome back to your {activeRole === 'user' ? 'personal' : 'company'} dashboard.</p>
           </div>
-          {(role === 'ADMIN' || role === 'OWNER') && (
-            <button className="btn btn-primary" onClick={() => navigate('/events')}>Create Event</button>
-          )}
+          <button className="btn btn-primary">Create Event</button>
         </header>
 
         {/* Stats Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
           <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Total Events</h4>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{totalEvents}</div>
+            <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Upcoming Events</h4>
+            <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>3</div>
           </div>
-          {(role === 'ADMIN' || role === 'OWNER') && (
-            <div className="glass-panel" style={{ padding: '1.5rem' }}>
-              <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Pending Jobs</h4>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{pendingJobs}</div>
-            </div>
-          )}
           <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Live Jobs</h4>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{liveJobs}</div>
+            <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Pending Invites</h4>
+            <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>1</div>
+          </div>
+          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+            <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Network Connections</h4>
+            <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>142</div>
           </div>
         </div>
         
@@ -130,17 +99,16 @@ export default function DashboardBase() {
         <div className="glass-panel" style={{ padding: '2rem' }}>
           <h3 style={{ marginBottom: '1.5rem' }}>Recent Activity</h3>
           <div className="stack" style={{ gap: '1.5rem' }}>
-            {activities.length > 0 ? activities.map((act, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%' }}></div>
-                <p style={{ margin: 0, fontSize: '0.9rem' }}>{act.message}</p>
-                <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  {new Date(act.createdAt).toLocaleDateString()}
-                </span>
-              </div>
-            )) : (
-              <p style={{ color: 'var(--text-secondary)' }}>No recent activity to show.</p>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ width: '8px', height: '8px', background: 'var(--primary)', borderRadius: '50%' }}></div>
+              <p style={{ margin: 0, fontSize: '0.9rem' }}>You registered for <strong>Devops Summit 2026</strong></p>
+              <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>2 hours ago</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ width: '8px', height: '8px', background: 'var(--accent)', borderRadius: '50%' }}></div>
+              <p style={{ margin: 0, fontSize: '0.9rem' }}>Acme Corp approved your Admin request</p>
+              <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>1 day ago</span>
+            </div>
           </div>
         </div>
 
@@ -166,6 +134,9 @@ export default function DashboardBase() {
         .nav-item.active {
           background: rgba(59, 130, 246, 0.1);
           color: var(--primary);
+        }
+        select option {
+          background: var(--bg-color);
         }
       `}</style>
     </div>
