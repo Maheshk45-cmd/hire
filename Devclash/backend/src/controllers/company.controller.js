@@ -105,3 +105,52 @@ export const joinEmployee = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+// Mock MCA Database
+const mockMcaDatabase = [
+  { name: "Acme Corp", cin: "L12345MH2023PTC123456", status: "Active" },
+  { name: "TechNova Solutions", cin: "U72900KA2021PTC098765", status: "Active" },
+  { name: "Devclash Network", cin: "L99999DL2024PTC111111", status: "Active" },
+];
+
+export const searchMcaDatabase = async (req, res) => {
+  try {
+    const { query } = req.query; // this can be name or cin
+    if (!query) return res.status(400).json({ error: "Query parameter is required" });
+
+    const lowerQuery = query.toLowerCase();
+    
+    // Find in mock database
+    const mcaCompany = mockMcaDatabase.find(
+      c => c.name.toLowerCase().includes(lowerQuery) || c.cin.toLowerCase().includes(lowerQuery)
+    );
+
+    if (!mcaCompany) {
+      return res.status(404).json({ error: "No matching company found in MCA database." });
+    }
+
+    // Now check if it exists in our internal DB to see if it has an admin
+    const internalCompany = await Company.findOne({ cin: mcaCompany.cin });
+    let hasAdmin = false;
+    
+    if (internalCompany) {
+       const existingAdmins = await CompanyMember.find({
+          companyId: internalCompany._id,
+          role: { $in: ["admin", "owner"] },
+          status: "active"
+       });
+       if (existingAdmins.length > 0) hasAdmin = true;
+    }
+
+    res.status(200).json({
+      name: mcaCompany.name,
+      cin: mcaCompany.cin,
+      mcaStatus: mcaCompany.status,
+      hasAdmin,
+      isRegisteredInternally: !!internalCompany
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

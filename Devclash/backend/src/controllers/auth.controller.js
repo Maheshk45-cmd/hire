@@ -6,9 +6,7 @@ import nodemailer from "nodemailer";
 
 const createTransporter = () => {
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT || 587,
-    secure: process.env.SMTP_PORT == 465, // true for 465, false for other ports
+    service: 'gmail',
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -71,7 +69,9 @@ export const verifyOtp = async (req, res) => {
     const inputHash = crypto.createHash('sha256').update(otp).digest('hex');
     if (storedOtp.otpHash !== inputHash) return res.status(400).json({ error: "Invalid OTP" });
 
-    await Otp.deleteMany({ email });
+    storedOtp.isVerified = true;
+    await storedOtp.save();
+    
     res.status(200).json({ message: "Email verified successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -142,7 +142,7 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// Final Signup (requires earlier valid OTP conceptually in frontend)
+// Final Signup (requires earlier valid OTP conceptually internally verified)
 export const signup = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -150,7 +150,16 @@ export const signup = async (req, res) => {
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ error: "User already exists" });
 
+    // Validate if OTP was previously successfully verified
+    const verifiedOtp = await Otp.findOne({ email, isVerified: true });
+    if (!verifiedOtp) {
+       return res.status(403).json({ error: "Unverified Email. Secure OTP verification strictly required before registration." });
+    }
+
     const newUser = await User.create({ email, password });
+    
+    // Clear out the OTP buffer completely after full secure registration
+    await Otp.deleteMany({ email });
     
     res.status(201).json({
       message: "Account created successfully.",
