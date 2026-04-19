@@ -98,27 +98,20 @@ export default function AddCompany() {
           <div className="stack animate-enter">
             <div className="input-group">
               <label>Company Legal Name or CIN</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <div style={{ position: 'relative', flex: 1 }}>
-                  <Building size={18} style={{ position: 'absolute', top: '15px', left: '15px', color: 'var(--text-secondary)' }} />
-                  <input type="text" className="input-field" placeholder="e.g. Acme Corporation" style={{ paddingLeft: '45px' }} value={search} onChange={e => setSearch(e.target.value)} />
-                </div>
-                <button className="btn btn-outline" onClick={handleSearch} disabled={loading || !search}>Search</button>
+              <div style={{ position: 'relative' }}>
+                <Building size={18} style={{ position: 'absolute', top: '15px', left: '15px', color: 'var(--text-secondary)' }} />
+                <input type="text" className="input-field" placeholder="e.g. Acme Corporation" style={{ paddingLeft: '45px' }} />
               </div>
             </div>
             
-            {errorMsg && step === 1 && <p style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>{errorMsg}</p>}
+            <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid var(--accent)', borderRadius: '8px', padding: '1rem', display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+              <CheckCircle2 color="var(--accent)" style={{ flexShrink: 0 }} />
+              <p style={{ fontSize: '0.85rem', margin: 0, color: 'var(--text-primary)' }}>
+                <strong>Acme Corp (L12345MH2023PTC123456)</strong> verified via MCA database.
+              </p>
+            </div>
 
-            {company && (
-              <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid var(--accent)', borderRadius: '8px', padding: '1rem', display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
-                <CheckCircle2 color="var(--accent)" style={{ flexShrink: 0 }} />
-                <p style={{ fontSize: '0.85rem', margin: 0, color: 'var(--text-primary)' }}>
-                  <strong>{company.name} ({company.cin})</strong> verified via MCA database.
-                </p>
-              </div>
-            )}
-
-            <button className="btn btn-primary btn-block" style={{ marginTop: '1rem' }} onClick={handleNext} disabled={!company}>
+            <button className="btn btn-primary btn-block" style={{ marginTop: '1rem' }} onClick={handleNext}>
               Confirm Company <ChevronRight size={18} />
             </button>
           </div>

@@ -1,32 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn } from 'lucide-react';
-import api from '../api';
 
 export default function Login() {
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleLogin = async (e) => {
+  const handleLogin = (e) => {
     e.preventDefault();
-    try {
-      setLoading(true);
-      setErrorMsg('');
-      const res = await api.post('/auth/login', { email, password });
-      
-      // Save full user payload statically to emulate global state
-      localStorage.setItem('user', JSON.stringify(res.data.user));
-      
-      navigate('/dashboard');
-    } catch (err) {
-      setErrorMsg(err.response?.data?.error || err.message || 'Login failed');
-    } finally {
-      setLoading(false);
-    }
+    // In a real app we'd determine role based on login response
+    // For now we just route to dashboard
+    navigate('/dashboard');
   };
 
   return (
@@ -46,7 +29,7 @@ export default function Login() {
             <label>Email Address</label>
             <div style={{ position: 'relative' }}>
               <Mail size={18} style={{ position: 'absolute', top: '15px', left: '15px', color: 'var(--text-secondary)' }} />
-              <input type="email" required className="input-field" placeholder="you@example.com" style={{ paddingLeft: '45px' }} value={email} onChange={e => setEmail(e.target.value)} disabled={loading} />
+              <input type="email" required className="input-field" placeholder="you@example.com" style={{ paddingLeft: '45px' }} />
             </div>
           </div>
           
@@ -57,14 +40,12 @@ export default function Login() {
             </div>
             <div style={{ position: 'relative' }}>
               <Lock size={18} style={{ position: 'absolute', top: '15px', left: '15px', color: 'var(--text-secondary)' }} />
-              <input type="password" required className="input-field" placeholder="••••••••" style={{ paddingLeft: '45px' }} value={password} onChange={e => setPassword(e.target.value)} disabled={loading} />
+              <input type="password" required className="input-field" placeholder="••••••••" style={{ paddingLeft: '45px' }} />
             </div>
           </div>
 
-          {errorMsg && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', margin: '0.5rem 0' }}>{errorMsg}</p>}
-
-          <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: '0.5rem' }} disabled={loading}>
-            {loading ? 'Authenticating...' : 'Sign In'}
+          <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: '0.5rem' }}>
+            Sign In
           </button>
         </form>
 

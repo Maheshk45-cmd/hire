@@ -4,7 +4,6 @@ import Login from './pages/Login';
 import DashboardBase from './pages/DashboardBase';
 import CompanyFlow from './pages/CompanyFlow';
 import AddCompany from './pages/AddCompany';
-import Events from './pages/Events';
 
 function App() {
   return (
@@ -16,7 +15,6 @@ function App() {
         <Route path="/dashboard/*" element={<DashboardBase />} />
         <Route path="/company-flow" element={<CompanyFlow />} />
         <Route path="/add-company" element={<AddCompany />} />
-        <Route path="/events" element={<Events />} />
       </Routes>
     </div>
   );
